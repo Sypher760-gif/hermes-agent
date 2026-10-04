@@ -139,8 +139,9 @@ VALID_HOOKS: Set[str] = {
     # and off the main thread: once at CLI startup, every gateway housekeeping curator tick (per
     # served profile, inside ITS runtime scope) and every `hermes serve` maintenance tick (per
     # hosted profile, inside ITS runtime scope; skipped when a gateway owns the profile). Bounded
-    # (120s floor, plugins_dispatch._HOOK_TIMEOUT_FLOOR_SECS). Kwargs: surface ("cli"|"gateway"|
-    # "serve"). Return ignored.
+    # (120s floor, plugins_dispatch._HOOK_TIMEOUT_FLOOR_SECS): the caller stops WAITING at the bound;
+    # the callback's thread is not terminated and the callback is skipped until it returns.
+    # Kwargs: surface ("cli"|"gateway"|"serve"). Return ignored.
     "on_maintenance_tick",
     # pre_gateway_dispatch: once per incoming MessageEvent, after the internal-event guard, BEFORE
     # auth/pairing and dispatch. Kwargs: event, gateway, session_store. Return {"action": "skip",
