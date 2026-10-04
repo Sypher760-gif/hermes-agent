@@ -469,8 +469,11 @@ def telemetry_provenance(skill_name: str, record: Optional[Dict[str, Any]] = Non
 
 
 def _emit_skill_lifecycle(skill_name: str, action: str, *, record: Optional[Dict[str, Any]] = None,
-                          task_id: Optional[str] = None, session_id: Optional[str] = None) -> None:
-    """Best-effort lifecycle hook after an authoritative state change; facts absent from *record* go as None."""
+                          task_id: Optional[str] = None, session_id: Optional[str] = None,
+                          operation: Optional[str] = None) -> None:
+    """Best-effort lifecycle hook after an authoritative state change; facts absent from *record* go as None.
+    *operation* is the ``skill_manage`` op behind a patched/edited fact: edit, write_file and remove_file all
+    report ``edited``, and an approved ``/skills approve`` replay runs no tool call a plugin could read it from."""
     facts = record or {}
     try:
         from hermes_cli.lifecycle import has_hook, invoke_hook
@@ -478,7 +481,7 @@ def _emit_skill_lifecycle(skill_name: str, action: str, *, record: Optional[Dict
             invoke_hook("on_skill_lifecycle", action=action, skill_name=skill_name,
                         provenance=telemetry_provenance(skill_name, record), task_id=task_id or "",
                         session_id=session_id or "", use_count=facts.get("use_count"), reused=facts.get("reused"),
-                        reuse_after_patch=facts.get("reuse_after_patch"))
+                        reuse_after_patch=facts.get("reuse_after_patch"), operation=operation)
     except Exception:
         logger.debug("skill_usage lifecycle hook failed for %s/%s", skill_name, action, exc_info=True)
 
@@ -517,7 +520,7 @@ def bump_patch(skill_name: str, *, action: str = "patch", task_id: Optional[str]
         rec["patch_generation"] = _non_negative_int(rec.get("patch_generation")) + 1
         return {"created_by": rec.get("created_by")}
     _mutate_and_emit(skill_name, "patched" if action == "patch" else "edited", _apply, task_id=task_id,
-                     session_id=session_id)
+                     session_id=session_id, operation=action)
 
 
 def record_created(skill_name: str, *, agent_created: bool, task_id: Optional[str] = None,

@@ -131,7 +131,9 @@ VALID_HOOKS: Set[str] = {
     # error_body may be unredacted.
     "transform_api_error_classification", "on_session_start", "on_session_end",
     "on_session_finalize", "on_session_reset",
-    # on_skill_lifecycle: successful skill lifecycle facts (local skill name visible to plugins).
+    # on_skill_lifecycle: successful skill lifecycle facts (local skill name visible to plugins);
+    # ``operation`` names the skill_manage op behind a patched/edited fact (edit, write_file and
+    # remove_file all report "edited"; an approved /skills replay fires no pre_tool_call).
     "on_skill_lifecycle", "subagent_start", "subagent_stop",
     # on_maintenance_tick: best-effort background maintenance for the profile in scope, off any turn
     # and off the main thread: once at CLI startup, every gateway housekeeping curator tick (per

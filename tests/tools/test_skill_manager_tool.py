@@ -516,6 +516,40 @@ class TestRemoveFile:
         assert outside_file.exists()
 
 
+def test_lifecycle_fact_names_the_skill_manage_operation(tmp_path):
+    """edit, write_file and remove_file all emit lifecycle ``edited``. A plugin that treats them
+    differently (an org-mirror note for content edits, never for remove_file) can only tell them
+    apart from the event: an approved ``/skills approve`` replay runs no tool call (no pre_tool_call)."""
+    from hermes_cli.plugins import discover_plugins
+    from hermes_constants import get_hermes_home
+
+    home, log = get_hermes_home(), tmp_path / "lifecycle.jsonl"
+    plugin = home / "plugins" / "lifecycle_probe"
+    plugin.mkdir(parents=True)
+    (plugin / "plugin.yaml").write_text("name: lifecycle_probe\nversion: 0.1.0\n", encoding="utf-8")
+    (plugin / "__init__.py").write_text(
+        "import json\n"
+        "def _fact(action=None, operation=None, **_):\n"
+        f"    with open({str(log)!r}, 'a', encoding='utf-8') as f:\n"  # windows-footgun: ok — append-only write
+        "        f.write(json.dumps([action, operation]) + '\\n')\n"
+        "def register(ctx):\n"
+        "    ctx.register_hook('on_skill_lifecycle', _fact)\n", encoding="utf-8")
+    with (home / "config.yaml").open("a", encoding="utf-8") as cfg:
+        cfg.write("plugins:\n  enabled: [lifecycle_probe]\n")
+    discover_plugins(force=True)
+
+    for call in ({"action": "create", "content": VALID_SKILL_CONTENT},
+                 {"action": "write_file", "file_path": "references/a.md", "file_content": "x"},
+                 {"action": "remove_file", "file_path": "references/a.md"},
+                 {"action": "patch", "old_string": "Step 1", "new_string": "Step one"},
+                 {"action": "edit", "content": VALID_SKILL_CONTENT_2}):
+        assert json.loads(skill_manage(name="test-skill", **call))["success"] is True
+
+    facts = [json.loads(line) for line in log.read_text(encoding="utf-8-sig").splitlines()]
+    assert [f for f in facts if f[0] in {"patched", "edited"}] == [
+        ["edited", "write_file"], ["edited", "remove_file"], ["patched", "patch"], ["edited", "edit"]]
+
+
 # ---------------------------------------------------------------------------
 # skill_manage dispatcher
 # ---------------------------------------------------------------------------
